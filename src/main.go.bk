@@ -1,0 +1,26 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+
+	"github.com/ethereum/go-ethereum/ethclient"
+)
+
+func main() {
+	client, err := ethclient.Dial("https://rpc.ankr.com/bsc")
+
+	if err != nil {
+		log.Fatalf("Oops! There was a problem", err)
+	} else {
+		fmt.Println("Sucess! you are connected to the Ethereum Network")
+	}
+
+	header, err := client.HeaderByNumber(context.Background(), nil)
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		fmt.Println(header.Number.String())
+	}
+}
