@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"fmt"
 	"log"
 	"whale-tracker/src/configs"
 
@@ -10,8 +9,6 @@ import (
 
 func GetClient(chainId int) *ethclient.Client {
 	network := configs.GetNetwork(chainId)
-
-	fmt.Println(network)
 
 	client, err := ethclient.Dial(network.RPC)
 
