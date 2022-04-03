@@ -15,7 +15,7 @@ func GetNetwork(chainId int) NetworkConfig {
 		Networks: []NetworkConfig{
 			{
 				Name:    "BSC",
-				ChainId: 97,
+				ChainId: 56,
 				RPC:     "https://bsc-dataseed.binance.org/",
 			},
 		},
