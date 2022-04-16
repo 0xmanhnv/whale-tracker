@@ -12,6 +12,8 @@ import (
 
 	"whale-tracker/src/blockchain"
 	"whale-tracker/src/blockchain/token"
+	"whale-tracker/src/services"
+	whaleutils "whale-tracker/src/whale-utils"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -20,6 +22,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 // LogTransfer ..
@@ -133,63 +136,88 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 		switch {
 		case AddressesContains(tokenAddress, tokenAddresses):
 
-			fmt.Println(vLog.Topics)
-			fmt.Println(vLog.Data)
-
 			from := vLog.Topics[1].Hex()
 			to := vLog.Topics[2].Hex()
-			TxHash := vLog.TxHash.Hex()
-
-			//TODO: handle transfer to
-			//TODO: handle transfer from
-			infoTransfer := LoadInfoTransfer(client, vLog.TxHash.Hex())
-
-			fmt.Println("----" + tokenAddress.String() + "----")
-
-			// handle if is not smart contract
-			if !CheckIsSmartContract(client, common.HexToAddress(to)) {
-				toBalance := GetBalanceToken(client, tokenAddress, common.HexToAddress(to))
-				fmt.Println("To Not smartcontract")
-				fmt.Println(toBalance)
-			}
-
-			if !CheckIsSmartContract(client, common.HexToAddress(from)) {
-				fromBalance := GetBalanceToken(client, tokenAddress, common.HexToAddress(from))
-				fmt.Println("To Not smartcontract")
-				fmt.Println(fromBalance)
-			}
-
-			if CheckAdressIsSwapAddress(common.HexToAddress(to)) {
-				fmt.Println(to + " is swap address")
-			}
-
-			if CheckAdressIsSwapAddress(common.HexToAddress(from)) {
-				fmt.Println(from + " is swap address")
-			}
+			// TxHash := vLog.TxHash.Hex()
 
 			/* Handle calc price token */
 			const spec = 200
 			price := priceToken.Data.Price.SetPrec(spec)
-			suplyToken := new(big.Float).SetInt(infoTransfer.Value).SetPrec(spec)
 
-			GetTokens(vLog)
+			isWhaleValue := new(big.Float).SetInt(big.NewInt(50000)).SetPrec(spec) //usd
 
-			fmt.Println("----------test")
-			fmt.Println(infoTransfer)
-			fmt.Println(price)
-			fmt.Println(suplyToken)
+			// infoTransfer := LoadInfoTransfer(client, vLog.TxHash.Hex())
 
-			// end calc price token
+			fmt.Println("----" + tokenAddress.String() + "----")
 
-			fmt.Println("FROM: Token balance of " + common.HexToAddress(from).String() + " : " + GetBalanceToken(client, tokenAddress, common.HexToAddress(from)).String())
+			// handle if TO is not smart contract
+			if !CheckIsSmartContract(client, common.HexToAddress(to)) {
+				isWhale := services.FindOnenWhale(tokenAddress.String(), common.HexToAddress(to).String())
 
-			fmt.Println("TO:Token balance of " + common.HexToAddress(to).String() + " : " + GetBalanceToken(client, tokenAddress, common.HexToAddress(to)).String())
+				if isWhale == nil {
+					// handle get balance
+					toBalanceInt := GetBalanceToken(client, tokenAddress, common.HexToAddress(to))
+					toBalanceEther := whaleutils.WeiToEther(toBalanceInt)
 
-			fmt.Println(vLog.BlockNumber)
-			fmt.Println(tokenAddress)
-			fmt.Println(TxHash)
-			fmt.Println(infoTransfer)
-			fmt.Println()
+					toValue := new(big.Float)
+					toValue.Mul(price, toBalanceEther)
+
+					if toValue.Cmp(isWhaleValue) >= 0 {
+
+						_, err := services.CreateWhale(bson.D{
+							{"address", common.HexToAddress(to).String()},
+							{"token_address", tokenAddress.String()},
+						})
+
+						if err != nil {
+							fmt.Println("Whale add success")
+						}
+					}
+				}
+			}
+
+			// handle if FROM is not smart contract
+			if !CheckIsSmartContract(client, common.HexToAddress(from)) {
+				isWhale := services.FindOnenWhale(tokenAddress.String(), common.HexToAddress(from).String())
+
+				if isWhale == nil {
+					// handle get balance
+					fromBalanceInt := GetBalanceToken(client, tokenAddress, common.HexToAddress(from))
+					fromBalanceEther := whaleutils.WeiToEther(fromBalanceInt)
+
+					fromValue := new(big.Float)
+					fromValue.Mul(price, fromBalanceEther)
+
+					if fromValue.Cmp(isWhaleValue) >= 0 {
+						_, err := services.CreateWhale(bson.D{
+							{"address", common.HexToAddress(from).String()},
+							{"token_address", tokenAddress.String()},
+						})
+
+						if err != nil {
+							fmt.Println("Whale add success")
+						}
+					}
+				}
+			}
+
+			// GetTokens(vLog)
+
+			// fmt.Println("----------test")
+			// fmt.Println(infoTransfer)
+			// fmt.Println(price)
+
+			// // end calc price token
+
+			// fmt.Println("FROM: Token balance of " + common.HexToAddress(from).String() + " : " + GetBalanceToken(client, tokenAddress, common.HexToAddress(from)).String())
+
+			// fmt.Println("TO:Token balance of " + common.HexToAddress(to).String() + " : " + GetBalanceToken(client, tokenAddress, common.HexToAddress(to)).String())
+
+			// fmt.Println(vLog.BlockNumber)
+			// fmt.Println(tokenAddress)
+			// fmt.Println(TxHash)
+			// fmt.Println(infoTransfer)
+			// fmt.Println()
 
 		}
 	}
