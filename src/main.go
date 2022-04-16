@@ -50,11 +50,11 @@ func InitBSCWhaleTracker() {
 
 	// tokens
 	addresses := []common.Address{
-		common.HexToAddress("0xE3233fdb23F1c27aB37Bd66A19a1f1762fCf5f3F"),
+		common.HexToAddress("0x0eb3a705fc54725037cc9e008bdede697f62f335"),
 		common.HexToAddress("0x3244b3b6030f374bafa5f8f80ec2f06aaf104b64"),
 	}
 
-	fromBlock := 16618413
+	fromBlock := 16618405
 	toBlock := fromBlock + 1000
 
 	logs := handles.LoadLogs(client, addresses, int64(fromBlock), int64(toBlock), topics)

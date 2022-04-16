@@ -2,9 +2,12 @@ package handles
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/big"
+	"net/http"
 	"strings"
 
 	"whale-tracker/src/blockchain"
@@ -125,8 +128,13 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 
 	for _, vLog := range logs {
 		tokenAddress := vLog.Address
+		priceToken := GetPriceFromPanCakeSwap(tokenAddress.String())
+
 		switch {
 		case AddressesContains(tokenAddress, tokenAddresses):
+
+			fmt.Println(vLog.Topics)
+			fmt.Println(vLog.Data)
 
 			from := vLog.Topics[1].Hex()
 			to := vLog.Topics[2].Hex()
@@ -138,6 +146,19 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 
 			fmt.Println("----" + tokenAddress.String() + "----")
 
+			// handle if is not smart contract
+			if !CheckIsSmartContract(client, common.HexToAddress(to)) {
+				toBalance := GetBalanceToken(client, tokenAddress, common.HexToAddress(to))
+				fmt.Println("To Not smartcontract")
+				fmt.Println(toBalance)
+			}
+
+			if !CheckIsSmartContract(client, common.HexToAddress(from)) {
+				fromBalance := GetBalanceToken(client, tokenAddress, common.HexToAddress(from))
+				fmt.Println("To Not smartcontract")
+				fmt.Println(fromBalance)
+			}
+
 			if CheckAdressIsSwapAddress(common.HexToAddress(to)) {
 				fmt.Println(to + " is swap address")
 			}
@@ -145,6 +166,20 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 			if CheckAdressIsSwapAddress(common.HexToAddress(from)) {
 				fmt.Println(from + " is swap address")
 			}
+
+			/* Handle calc price token */
+			const spec = 200
+			price := priceToken.Data.Price.SetPrec(spec)
+			suplyToken := new(big.Float).SetInt(infoTransfer.Value).SetPrec(spec)
+
+			GetTokens(vLog)
+
+			fmt.Println("----------test")
+			fmt.Println(infoTransfer)
+			fmt.Println(price)
+			fmt.Println(suplyToken)
+
+			// end calc price token
 
 			fmt.Println("FROM: Token balance of " + common.HexToAddress(from).String() + " : " + GetBalanceToken(client, tokenAddress, common.HexToAddress(from)).String())
 
@@ -158,6 +193,33 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 
 		}
 	}
+}
+
+func CheckIsSmartContract(client *ethclient.Client, address common.Address) bool {
+	bytecode, err := client.CodeAt(context.Background(), address, nil) // nil is latest block
+	if err != nil {
+		log.Fatal(err)
+		return false
+	}
+
+	return len(bytecode) > 0
+}
+
+func GetTokens(vLog types.Log) {
+
+	// read value token
+	contractAbi, err := abi.JSON(strings.NewReader(string(token.TokenABI)))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	value, err := contractAbi.Unpack("Transfer", vLog.Data)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(value[0])
 }
 
 func LoadInfoTransfer(client *ethclient.Client, TxHash string) InfoTransfer {
@@ -210,4 +272,42 @@ func GetBalanceToken(client *ethclient.Client, tokenAddress common.Address, addr
 	}
 
 	return bal
+}
+
+type DataPrice struct {
+	Name      string    `json:"name"`
+	Symbol    string    `json:"symbol"`
+	Price     big.Float `json:"price"`
+	Price_BNB big.Float `json:"price_BNB"`
+}
+
+type ResponsePrice struct {
+	Data DataPrice `json:"data"`
+}
+
+func GetPriceFromPanCakeSwap(address string) ResponsePrice {
+
+	UrlApi := "https://api.pancakeswap.info/api/v2/tokens/" + address
+
+	resp, err := http.Get(UrlApi)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	defer resp.Body.Close()
+
+	//We Read the response body on the line below.
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var result ResponsePrice
+	if err := json.Unmarshal(body, &result); err != nil { // Parse []byte to the go struct pointer
+		fmt.Println("Can not unmarshal JSON")
+	}
+
+	fmt.Println(result)
+
+	return result
 }
