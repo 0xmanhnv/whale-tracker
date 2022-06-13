@@ -10,6 +10,7 @@ import (
 	"path"
 	"time"
 	"whale-tracker/src/blockchain"
+	"whale-tracker/src/crons"
 	"whale-tracker/src/database"
 	"whale-tracker/src/handles"
 	"whale-tracker/src/models"
@@ -39,10 +40,10 @@ func bootstrap() {
 	LoadEnv() // init load env
 	database.CreateDBInstance()
 
-	// crons.Init()
+	crons.Init()
 }
 
-func InitBSCWhaleTracker() {
+func InitBSCWhaleTracker(fromBlock int, toBlock int) {
 	// init client
 	client := blockchain.GetClient(56)
 	defer client.Close()
@@ -63,8 +64,8 @@ func InitBSCWhaleTracker() {
 		common.HexToAddress("0x3244b3b6030f374bafa5f8f80ec2f06aaf104b64"),
 	}
 
-	fromBlock := 16618405
-	toBlock := fromBlock + 1000
+	// fromBlock := 16618405
+	// toBlock := fromBlock + 1000
 
 	logs := handles.LoadLogs(client, addresses, int64(fromBlock), int64(toBlock), topics)
 	// end load logs
@@ -72,16 +73,6 @@ func InitBSCWhaleTracker() {
 	// fmt.Println(logs)
 
 	handles.LogHandleToWhale(client, logs, addresses)
-
-	// holder := models.Holder{
-	// 	Id:           primitive.NewObjectID(),
-	// 	Address:      "0x58c34146316a9a60BFA5dA1d7F451e46BDd51215",
-	// 	TokenAddress: "0xE3233fdb23F1c27aB37Bd66A19a1f1762fCf5f3F",
-	// }
-
-	// services.CreateHolder(holder)
-
-	// services.GetTokenHolderWithCovalenthqAPI("0xE3233fdb23F1c27aB37Bd66A19a1f1762fCf5f3F", "56")
 }
 
 func main() {
@@ -96,14 +87,16 @@ func main() {
 		json.NewEncoder(rw).Encode(map[string]string{"data": "Hello from Mux & mongoDB"})
 	}).Methods("GET")
 
-	router.HandleFunc("/whales", func(rw http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/whales/{tokenAddress}", func(rw http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		tokenAddress := params["tokenAddress"]
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		var whales models.Whales
 
 		var whaleCollection *mongo.Collection = database.GetCollection(database.DB, "whales")
-		results, err := whaleCollection.Find(ctx, bson.M{})
+		results, err := whaleCollection.Find(ctx, bson.M{"token_address": tokenAddress})
 
 		if err != nil {
 			rw.WriteHeader(http.StatusInternalServerError)

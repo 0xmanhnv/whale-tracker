@@ -132,7 +132,6 @@ func LogHandleToWhale(client *ethclient.Client, logs []types.Log, tokenAddresses
 	for _, vLog := range logs {
 		tokenAddress := vLog.Address
 		priceToken := GetPriceFromPanCakeSwap(tokenAddress.String())
-
 		switch {
 		case AddressesContains(tokenAddress, tokenAddresses):
 

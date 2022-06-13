@@ -40,3 +40,14 @@ func FindOnenWhale(tokenAddress string, address string) bson.M {
 
 	return whale
 }
+
+// func UpdatePointBlockNumber(number int) bson.M {
+// 	var point bson.M
+// 	var pointCollection *mongo.Collection = database.GetCollection(database.DB, "points")
+
+// 	if err := pointCollection.FindOne(context.TODO(), bson.M{}).Decode(&point); err != nil {
+// 		return nil
+// 	}
+
+// 	if
+// }
